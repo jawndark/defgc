@@ -15,7 +15,8 @@ CHARACTER_RATIOS = {
 
 GROOVE_VALUES = {'Stamina' : 0, 'Super' : 0, 'Ex' : -1, 'Demon' : -1, 'Speed' : -1, 'Parry' : -2}
 
-def create_tier_dataframe(path=".\Data\character_tiers.csv", grooves=None):
+
+def create_tier_dataframe(path=r"./Data/character_tiers.csv", grooves=None):
     if grooves is None:
         grooves = GROOVE_VALUES
     try:
@@ -30,8 +31,6 @@ def create_tier_dataframe(path=".\Data\character_tiers.csv", grooves=None):
     for key, value in grooves.items():
         df[key] = df['Average'] + value
     return df[grooves.keys()]
-
-
 
 
 def get_kyanta_team(characters=3, points=7, teams=1):
