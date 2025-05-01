@@ -10,10 +10,10 @@ CHARACTER_RATIOS = {
     'Ex': [0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4, 4],
     'Demon': [0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4, 4],
     'Speed': [0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4, 4],
-    'Parry': [-1, -1, -1, -1, -1, -1, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3]
+    'Parry': [0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4, 4]
 }
 
-GROOVE_VALUES = {'Stamina' : 0, 'Super' : 0, 'Ex' : -1, 'Demon' : -1, 'Speed' : -1, 'Parry' : -2}
+GROOVE_VALUES = {'Stamina' : 0, 'Super' : 0, 'Ex' : -1, 'Demon' : -1, 'Speed' : -1, 'Parry' : -1}
 
 
 def create_tier_dataframe(path=r"./Data/character_tiers.csv", grooves=None):
@@ -65,7 +65,8 @@ def get_kyanta_team(characters=3, points=7, teams=1):
                     print(f"{csv[0]:<15}{csv[1]:<8}{csv[2]:>2}")
                 print("")
             else:
-                print("No valid combinations found. Trying again...")
+                # print("No valid combinations found. Trying again...")
+                pass
         except Exception as e:
             print(f"Error: {e}")
             pass
