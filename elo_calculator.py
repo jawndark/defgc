@@ -72,7 +72,15 @@ if __name__ == "__main__":
     # Initialize EloCalculator with a K-factor of 32
     elo_calculator = EloCalculator(k=32)
     df = get_rating_sheet()
-    rating_dict = BASE_RATINGS.copy()
+    # rating_dict = BASE_RATINGS.copy()
+    rating_dict = {}
+    set_cutoff = 19
+    # Count occurrences of players in Player1 and Player2 columns
+    player_counts = df.groupby('Player1').size().add(df.groupby('Player2').size(), fill_value=0)
+    # Filter players who appear more than 19 times
+    frequent_players = player_counts[player_counts > set_cutoff].index
+    # Filter df to include only rows where both Player1 and Player2 are frequent players
+    df = df[(df['Player1'].isin(frequent_players) & df['Player2'].isin(frequent_players))]    
     for _, x in df.iterrows():
         p1 = x['Player1']
         p2 = x['Player2']
@@ -84,6 +92,6 @@ if __name__ == "__main__":
     rdf = pd.DataFrame.from_dict(rating_dict, orient='index', columns=['Rating']).reset_index(names='Player')
     rdf['Rating'] = rdf['Rating'].round(2)
     rdf = rdf.sort_values(by='Rating', ascending=False).reset_index(drop=True)   
-    # print(rdf)
+    print(rdf)
     rdf.to_csv(r"./Data/player_ratings.csv", index=False)
 
