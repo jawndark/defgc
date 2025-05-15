@@ -19,6 +19,16 @@ BASE_RATINGS = {'Boog': 1500,
  'Parappa': 1500,
  'Timestop': 1500}
 
+MOCK_TEAMS = {'Boog': ['Hatoyan', 'Tsuki', 'Gyanta'],
+ 'Tension': ['Cocorn', 'Hatoyan','Zacky Wild'],
+ 'Poke': ['Kyanta', 'Rare', 'Gyanta'],
+ 'Squid': ['Garasha', 'Kyanta', 'Sendou'],
+ 'Cosmic': ['M. Michelle', 'Anna', 'Investigator'],
+ 'Valentine': ['Natanee', 'Myusha', 'Anna'],
+ 'Jawn': ['Nanatsu', 'Rare', 'Robo Azuma'],
+ 'D-Cint': ['Hatoyan', 'Michelle', 'Gyanta'],
+ 'Parappa': ['Hatoyan', 'Anna', 'Chihiro']}
+
 def get_rating_sheet(path=r"./Data/elo_ratings.csv"):
     """
     Load the Elo ratings from a CSV file.
@@ -32,6 +42,15 @@ def get_rating_sheet(path=r"./Data/elo_ratings.csv"):
         print(f"File not found: {path}")
         return None
     return df
+
+def calculate_odds(rating_a, rating_b):
+    """
+    Calculate the odds of player A winning against player B.
+    :param rating_a: Rating of player A.
+    :param rating_b: Rating of player B.
+    :return: Odds of player A winning.
+    """
+    return 1 / (1 + 10 ** ((rating_b - rating_a) / 400))
 
 class EloCalculator:
     def __init__(self, k=32):
@@ -68,30 +87,67 @@ class EloCalculator:
 
 
 # Example usage
+# if __name__ == "__main__":
+#     # Initialize EloCalculator with a K-factor of 32
+#     elo_calculator = EloCalculator(k=32)
+#     df = get_rating_sheet()
+#     # rating_dict = BASE_RATINGS.copy()
+#     rating_dict = {}
+#     set_cutoff = 19
+#     player_counts = df.groupby('Player1').size().add(df.groupby('Player2').size(), fill_value=0)
+#     frequent_players = player_counts[player_counts > set_cutoff].index
+#     df = df[(df['Player1'].isin(frequent_players) & df['Player2'].isin(frequent_players))]    
+#     for _, x in df.iterrows():
+#         p1 = x['Player1']
+#         p2 = x['Player2']
+#         p1_rating = rating_dict.get(p1, 1500)
+#         p2_rating = rating_dict.get(p2, 1500)
+#         p1_rating, p2_rating = elo_calculator.update_ratings(p1_rating, p2_rating, x['P1Result'])
+#         rating_dict[p1] = p1_rating
+#         rating_dict[p2] = p2_rating
+#     rdf = pd.DataFrame.from_dict(rating_dict, orient='index', columns=['Rating']).reset_index(names='Player')
+#     rdf['Rating'] = rdf['Rating'].round(2)
+#     rdf = rdf.sort_values(by='Rating', ascending=False).reset_index(drop=True)   
+#     print(rdf)
+#     rdf.to_csv(r"./Data/player_ratings.csv", index=False)
+
 if __name__ == "__main__":
     # Initialize EloCalculator with a K-factor of 32
     elo_calculator = EloCalculator(k=32)
     df = get_rating_sheet()
     # rating_dict = BASE_RATINGS.copy()
-    rating_dict = {}
+    char_rating_dict = {}
+    player_rating_dict = {}
     set_cutoff = 19
-    # Count occurrences of players in Player1 and Player2 columns
     player_counts = df.groupby('Player1').size().add(df.groupby('Player2').size(), fill_value=0)
-    # Filter players who appear more than 19 times
     frequent_players = player_counts[player_counts > set_cutoff].index
-    # Filter df to include only rows where both Player1 and Player2 are frequent players
-    df = df[(df['Player1'].isin(frequent_players) & df['Player2'].isin(frequent_players))]    
+    df = df[(df['Player1'].isin(frequent_players) & df['Player2'].isin(frequent_players))]   
+    for char_num in range(1,4):
+        df[f'P1C{char_num}'] = df['Player1'].apply(lambda x: MOCK_TEAMS[x][char_num-1])
+        df[f'P2C{char_num}'] = df['Player2'].apply(lambda x: MOCK_TEAMS[x][char_num-1])    
     for _, x in df.iterrows():
         p1 = x['Player1']
         p2 = x['Player2']
-        p1_rating = rating_dict.get(p1, 1500)
-        p2_rating = rating_dict.get(p2, 1500)
-        p1_rating, p2_rating = elo_calculator.update_ratings(p1_rating, p2_rating, x['P1Result'])
-        rating_dict[p1] = p1_rating
-        rating_dict[p2] = p2_rating
-    rdf = pd.DataFrame.from_dict(rating_dict, orient='index', columns=['Rating']).reset_index(names='Player')
+        p1_rating = player_rating_dict.get(p1, 1500)
+        p2_rating = player_rating_dict.get(p2, 1500)
+        p1_rating, p2_rating = elo_calculator.update_ratings(p1_rating, p2_rating, x['P1Result'])   
+        player_rating_dict[p1] = p1_rating
+        player_rating_dict[p2] = p2_rating          
+        for p1_num in range(1,4):
+            p1ch = x[f'P1C{p1_num}']
+            for p2_num in range(1,4):
+                p2ch = x[f'P2C{p2_num}']
+                if p1ch == p2ch:
+                    continue
+
+                p1ch_rating = (char_rating_dict.get(p1ch, 1500) + p1_rating) / 2.0
+                p2ch_rating = (char_rating_dict.get(p2ch, 1500) + p2_rating) / 2.0
+                p1ch_rating, p2ch_rating = elo_calculator.update_ratings(p1ch_rating, p2ch_rating, x['P1Result'])
+                char_rating_dict[p1ch] = p1ch_rating
+                char_rating_dict[p2ch] = p2ch_rating
+    rdf = pd.DataFrame.from_dict(char_rating_dict, orient='index', columns=['Rating']).reset_index(names='Character')
     rdf['Rating'] = rdf['Rating'].round(2)
     rdf = rdf.sort_values(by='Rating', ascending=False).reset_index(drop=True)   
     print(rdf)
-    rdf.to_csv(r"./Data/player_ratings.csv", index=False)
+    rdf.to_csv(r"./Data/player_character_ratings.csv", index=False)
 
