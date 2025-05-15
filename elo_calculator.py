@@ -150,4 +150,9 @@ if __name__ == "__main__":
     rdf = rdf.sort_values(by='Rating', ascending=False).reset_index(drop=True)   
     print(rdf)
     rdf.to_csv(r"./Data/player_character_ratings.csv", index=False)
+    prdf = pd.DataFrame.from_dict(player_rating_dict, orient='index', columns=['Rating']).reset_index(names='Player')
+    prdf['Rating'] = prdf['Rating'].round(2)
+    prdf = prdf.sort_values(by='Rating', ascending=False).reset_index(drop=True)   
+    print(prdf)
+    prdf.to_csv(r"./Data/player_ratings.csv", index=False)    
 
