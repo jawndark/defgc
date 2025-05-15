@@ -149,8 +149,10 @@ if __name__ == "__main__":
                 character_2_rating = char_rating_dict.get(p2ch, 1500)
                 # print(f"Current Character Rating: {character_1_rating}, Current Character Rating: {character_2_rating}")
                 p1ch_rating, p2ch_rating = elo_calculator.update_ratings(character_1_rating, character_2_rating, x['P1Result'])
-                char_rating_dict[p1ch] = p1ch_rating - (p1_rating_change * 1.0)
-                char_rating_dict[p2ch] = p2ch_rating - (p2_rating_change * 1.0)
+                p1ch_rating -= p1_rating_change * 0.3
+                p2ch_rating -= p2_rating_change * 0.3
+                char_rating_dict[p1ch] = character_1_rating + ((p1ch_rating - character_1_rating) * 0.3) 
+                char_rating_dict[p2ch] = character_2_rating + ((p2ch_rating - character_2_rating) * 0.3) 
                 # p1ch_rating, p2ch_rating = elo_calculator.update_ratings(current_p1ch_rating, current_p2ch_rating, x['P1Result'])
                 # print(f"Updated P1character Rating: {p1ch_rating}, Updated P2Character Rating: {p2ch_rating}")
                 # p1ch_rating += p1_rating_change
