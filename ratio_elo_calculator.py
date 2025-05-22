@@ -8,25 +8,47 @@ class EloCalculator:
     def calculate_expected_score(self, rating_a, rating_b):
         return 1 / (1 + 10 ** ((rating_b - rating_a) / 400))
 
-    def update_ratings(self, rating_a, rating_b, result_a):
+    def update_ratings(self, rating_a, rating_b, result_a, scale=1.0, k_value=None):
+        k_value = k_value or self.k
         expected_a = self.calculate_expected_score(rating_a, rating_b)
         expected_b = 1 - expected_a
 
-        new_rating_a = rating_a + self.k * (result_a - expected_a)
-        new_rating_b = rating_b + self.k * ((1 - result_a) - expected_b)
+        new_rating_a = rating_a + (k_value * scale * (result_a - expected_a)) * 1.0
+        new_rating_b = rating_b + (k_value * scale * ((1 - result_a) - expected_b)) * 1.0
 
         return new_rating_a, new_rating_b
 
-def calculate_elo_from_csv(file_path):
+def load_initial_ratings(file_path):
+    """
+    Load initial ratings from a CSV file into a dictionary.
+    :param file_path: Path to the CSV file.
+    :return: A dictionary with keys as the first column and values as the 'Rating' column.
+    """
+    try:
+        df = pd.read_csv(file_path)
+        return dict(zip(df.iloc[:, 0], df['Rating']))
+    except FileNotFoundError:
+        # If the file doesn't exist, return an empty dictionary
+        return {}
+
+def calculate_elo_from_csv(file_path, fresh=False):
     # Load data
     df = pd.read_csv(file_path)
+    df = df.loc[df['Character 1'].notnull()]
+    if fresh == True:
+        player_ratings = defaultdict(lambda: 1500)
+        character_ratings = defaultdict(lambda: 1500)
+        groove_ratings = defaultdict(lambda: 1500)
+        char_groove_ratings = defaultdict(lambda: 1500)
+    else:
+    # Load initial ratings from CSV files
+        player_ratings = defaultdict(lambda: 1500, load_initial_ratings(r"./Data/Ratio/player_elo.csv"))
+        character_ratings = defaultdict(lambda: 1500, load_initial_ratings(r"./Data/Ratio/character_elo.csv"))
+        groove_ratings = defaultdict(lambda: 1500, load_initial_ratings(r"./Data/Ratio/groove_elo.csv"))
+        char_groove_ratings = defaultdict(lambda: 1500, load_initial_ratings(r"./Data/Ratio/char_groove_elo.csv"))
 
-    # Initialize ELO calculators and rating dictionaries
-    elo_calculator = EloCalculator(k=32)
-    player_ratings = defaultdict(lambda: 1500)
-    character_ratings = defaultdict(lambda: 1500)
-    groove_ratings = defaultdict(lambda: 1500)
-    char_groove_ratings = defaultdict(lambda: 1500)
+    # Initialize ELO calculator
+    elo_calculator = EloCalculator(k=16)
 
     # Process each set
     for set_id, set_df in df.groupby('Set'):
@@ -56,63 +78,57 @@ def calculate_elo_from_csv(file_path):
             # Update Character, Groove, and Character + Groove ELOs
             for char1, groove1 in zip(player1_characters, player1_grooves):
                 for char2, groove2 in zip(player2_characters, player2_grooves):
-                    # Character ELO
-                    char1_rating = character_ratings[char1]
-                    char2_rating = character_ratings[char2]
-                    char1_rating, char2_rating = elo_calculator.update_ratings(char1_rating, char2_rating, 1.0)
-                    character_ratings[char1] = char1_rating
-                    character_ratings[char2] = char2_rating
-
-                    # Groove ELO
-                    groove1_rating = groove_ratings[groove1]
-                    groove2_rating = groove_ratings[groove2]
-                    groove1_rating, groove2_rating = elo_calculator.update_ratings(groove1_rating, groove2_rating, 1.0)
-                    groove_ratings[groove1] = groove1_rating
-                    groove_ratings[groove2] = groove2_rating
-
-                    # Character + Groove ELO
-                    char_groove1 = f"{char1}-{groove1}"
-                    char_groove2 = f"{char2}-{groove2}"
-                    char_groove1_rating = char_groove_ratings[char_groove1]
-                    char_groove2_rating = char_groove_ratings[char_groove2]
-                    char_groove1_rating, char_groove2_rating = elo_calculator.update_ratings(char_groove1_rating, char_groove2_rating, 1.0)
-                    char_groove_ratings[char_groove1] = char_groove1_rating
-                    char_groove_ratings[char_groove2] = char_groove2_rating
+                    if char1 != char2:
+                        char1_rating = character_ratings[char1]
+                        char2_rating = character_ratings[char2]
+                        char1_rating, char2_rating = elo_calculator.update_ratings(char1_rating, char2_rating, 1.0, 0.33)
+                        character_ratings[char1] = char1_rating
+                        character_ratings[char2] = char2_rating
+                    if groove1 != groove2:
+                        groove1_rating = groove_ratings[groove1]
+                        groove2_rating = groove_ratings[groove2]
+                        groove1_rating, groove2_rating = elo_calculator.update_ratings(groove1_rating, groove2_rating, 1.0, 0.33)
+                        groove_ratings[groove1] = groove1_rating
+                        groove_ratings[groove2] = groove2_rating
+                    if char1 != char2 or groove1 != groove2:
+                        char_groove1 = f"{char1}-{groove1}"
+                        char_groove2 = f"{char2}-{groove2}"
+                        char_groove1_rating = char_groove_ratings[char_groove1]
+                        char_groove2_rating = char_groove_ratings[char_groove2]
+                        char_groove1_rating, char_groove2_rating = elo_calculator.update_ratings(char_groove1_rating, char_groove2_rating, 1.0, 0.33)
+                        char_groove_ratings[char_groove1] = char_groove1_rating
+                        char_groove_ratings[char_groove2] = char_groove2_rating
 
         # Process each win for Player 2
         for _ in range(player2_data['Wins']):
-            # Update Player ELO
             player1_rating = player_ratings[player1]
             player2_rating = player_ratings[player2]
             player2_rating, player1_rating = elo_calculator.update_ratings(player2_rating, player1_rating, 1.0)
             player_ratings[player1] = player1_rating
             player_ratings[player2] = player2_rating
 
-            # Update Character, Groove, and Character + Groove ELOs
             for char2, groove2 in zip(player2_characters, player2_grooves):
                 for char1, groove1 in zip(player1_characters, player1_grooves):
-                    # Character ELO
-                    char2_rating = character_ratings[char2]
-                    char1_rating = character_ratings[char1]
-                    char2_rating, char1_rating = elo_calculator.update_ratings(char2_rating, char1_rating, 0.33)
-                    character_ratings[char2] = char2_rating
-                    character_ratings[char1] = char1_rating
-
-                    # Groove ELO
-                    groove2_rating = groove_ratings[groove2]
-                    groove1_rating = groove_ratings[groove1]
-                    groove2_rating, groove1_rating = elo_calculator.update_ratings(groove2_rating, groove1_rating, 0.33)
-                    groove_ratings[groove2] = groove2_rating
-                    groove_ratings[groove1] = groove1_rating
-
-                    # Character + Groove ELO
-                    char_groove2 = f"{char2}-{groove2}"
-                    char_groove1 = f"{char1}-{groove1}"
-                    char_groove2_rating = char_groove_ratings[char_groove2]
-                    char_groove1_rating = char_groove_ratings[char_groove1]
-                    char_groove2_rating, char_groove1_rating = elo_calculator.update_ratings(char_groove2_rating, char_groove1_rating, 0.33)
-                    char_groove_ratings[char_groove2] = char_groove2_rating
-                    char_groove_ratings[char_groove1] = char_groove1_rating
+                    if char1 != char2:
+                        char2_rating = character_ratings[char2]
+                        char1_rating = character_ratings[char1]
+                        char2_rating, char1_rating = elo_calculator.update_ratings(char2_rating, char1_rating, 1.0, 0.33)
+                        character_ratings[char2] = char2_rating
+                        character_ratings[char1] = char1_rating
+                    if groove1 != groove2:
+                        groove1_rating = groove_ratings[groove1]
+                        groove2_rating = groove_ratings[groove2]
+                        groove2_rating, groove1_rating = elo_calculator.update_ratings(groove2_rating, groove1_rating, 1.0, 0.33)
+                        groove_ratings[groove1] = groove1_rating
+                        groove_ratings[groove2] = groove2_rating
+                    if char1 != char2 or groove1 != groove2:
+                        char_groove1 = f"{char1}-{groove1}"
+                        char_groove2 = f"{char2}-{groove2}"
+                        char_groove1_rating = char_groove_ratings[char_groove1]
+                        char_groove2_rating = char_groove_ratings[char_groove2]
+                        char_groove2_rating, char_groove1_rating = elo_calculator.update_ratings(char_groove2_rating, char_groove1_rating, 1.0, 0.33)
+                        char_groove_ratings[char_groove1] = char_groove1_rating
+                        char_groove_ratings[char_groove2] = char_groove2_rating
 
     # Convert results to DataFrames
     player_df = pd.DataFrame.from_dict(player_ratings, orient='index', columns=['Rating']).reset_index(names='Player')
@@ -125,6 +141,7 @@ def calculate_elo_from_csv(file_path):
     character_df.to_csv(r"./Data/Ratio/character_elo.csv", index=False)
     groove_df.to_csv(r"./Data/Ratio/groove_elo.csv", index=False)
     char_groove_df.to_csv(r"./Data/Ratio/char_groove_elo.csv", index=False)
+    
     print_elo_values_from_dataframe(player_df, "Player ELO")
     print_elo_values_from_dataframe(character_df, "Character ELO")
     print_elo_values_from_dataframe(groove_df, "Groove ELO")
@@ -140,11 +157,11 @@ def print_elo_values_from_dataframe(df, df_name=None):
     """
     # Sort by the first column and round the Rating column
     column_name = df.columns[0]
-    df = df.sort_values(by=column_name)
+    df = df.sort_values(by='Rating', ascending=False)
     df['Rating'] = df['Rating'].round(2)
 
     # Calculate column widths for alignment
-    col1_width = max(len(column_name), df[column_name].str.len().max())
+    col1_width = max(len(column_name), df[column_name].astype(str).str.len().max())
     col2_width = max(len('Rating'), len(str(df['Rating'].max())))
 
     # Print header
@@ -159,4 +176,4 @@ def print_elo_values_from_dataframe(df, df_name=None):
     print("\n")   
 
 # Run the calculation
-calculate_elo_from_csv(r"Data\ratio_team_results.csv")
+calculate_elo_from_csv(r"Data\ratio_team_results.csv", fresh=True)
