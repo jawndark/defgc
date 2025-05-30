@@ -40,6 +40,7 @@ def calculate_elo_from_csv(file_path, fresh=False, averaged=False):
         player_ratings = defaultdict(lambda: 1500)
         character_ratings = defaultdict(lambda: 1500)
         groove_ratings = defaultdict(lambda: 1500)
+        player_character_ratings = defaultdict(lambda: 1500)
         char_groove_ratings = defaultdict(
             lambda: 1500,
             {f"{char}-{groove}": (character_ratings[char] + groove_ratings[groove]) / 2
@@ -51,6 +52,7 @@ def calculate_elo_from_csv(file_path, fresh=False, averaged=False):
         character_ratings = defaultdict(lambda: 1500, load_initial_ratings(r"./Data/Ratio/character_elo.csv"))
         groove_ratings = defaultdict(lambda: 1500, load_initial_ratings(r"./Data/Ratio/groove_elo.csv"))
         char_groove_ratings = defaultdict(lambda: 1500, load_initial_ratings(r"./Data/Ratio/char_groove_elo.csv"))
+        player_character_ratings = defaultdict(lambda: 1500, load_initial_ratings(r"./Data/Ratio/player_character_elo.csv"))  # Load Player-Character ratings
 
     # Initialize ELO calculator
     elo_calculator = EloCalculator(k=32)
@@ -130,6 +132,22 @@ def calculate_elo_from_csv(file_path, fresh=False, averaged=False):
                             char_groove1_rating, char_groove2_rating = elo_calculator.update_ratings(char_groove1_rating, char_groove2_rating, 1.0, 0.33)
                             char_groove_ratings[char_groove1] = char_groove1_rating
                             char_groove_ratings[char_groove2] = char_groove2_rating
+                    # Process Player 1's character ratings  
+                    player_char1 = f"{player1}-{char1}"
+                    player_char2 = f"{player2}-{char2}"
+
+                    player_char1_rating = player_character_ratings[player_char1]
+                    player_char2_rating = player_character_ratings[player_char2]
+
+                    player_char1_rating, player_char2_rating = elo_calculator.update_ratings(
+                        player_char1_rating, player_char2_rating, 1.0, 0.33
+                    )
+
+                    player_character_ratings[player_char1] = player_char1_rating
+                    player_character_ratings[player_char2] = player_char2_rating
+
+
+                        
 
         # Process each win for Player 2
         for _ in range(player2_data['Wins']):
@@ -189,22 +207,39 @@ def calculate_elo_from_csv(file_path, fresh=False, averaged=False):
                             char_groove_ratings[char_groove1] = char_groove1_rating
                             char_groove_ratings[char_groove2] = char_groove2_rating
 
+                    # Process Player 2's character ratings
+                    player_char1 = f"{player1}-{char1}"
+                    player_char2 = f"{player2}-{char2}"
+
+                    player_char1_rating = player_character_ratings[player_char1]
+                    player_char2_rating = player_character_ratings[player_char2]
+
+                    player_char2_rating, player_char1_rating = elo_calculator.update_ratings(
+                        player_char2_rating, player_char1_rating, 1.0, 0.33
+                    )
+
+                    player_character_ratings[player_char1] = player_char1_rating
+                    player_character_ratings[player_char2] = player_char2_rating    
+
     # Convert results to DataFrames
     player_df = pd.DataFrame.from_dict(player_ratings, orient='index', columns=['Rating']).reset_index(names='Player')
     character_df = pd.DataFrame.from_dict(character_ratings, orient='index', columns=['Rating']).reset_index(names='Character')
     groove_df = pd.DataFrame.from_dict(groove_ratings, orient='index', columns=['Rating']).reset_index(names='Groove')
     char_groove_df = pd.DataFrame.from_dict(char_groove_ratings, orient='index', columns=['Rating']).reset_index(names='Character-Groove')
+    player_character_df = pd.DataFrame.from_dict(player_character_ratings, orient='index', columns=['Rating']).reset_index(names='Player-Character')
 
     # Save results to CSV
     player_df.to_csv(r"./Data/Ratio/player_elo_avg.csv", index=False)
     character_df.to_csv(r"./Data/Ratio/character_elo_avg.csv", index=False)
     groove_df.to_csv(r"./Data/Ratio/groove_elo_avg.csv", index=False)
     char_groove_df.to_csv(r"./Data/Ratio/char_groove_elo_avg.csv", index=False)
+    player_character_df.to_csv(r"./Data/Ratio/player_character_elo_avg.csv", index=False)
 
     print_elo_values_from_dataframe(player_df, "Player ELO")
     print_elo_values_from_dataframe(character_df, "Character ELO")
     print_elo_values_from_dataframe(groove_df, "Groove ELO")
     print_elo_values_from_dataframe(char_groove_df, "Character-Groove ELO")
+    print_elo_values_from_dataframe(player_character_df, "Player-Character ELO")
 
 
 def print_elo_values_from_dataframe(df, df_name=None):
