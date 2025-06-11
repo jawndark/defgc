@@ -270,4 +270,4 @@ def print_elo_values_from_dataframe(df, df_name=None):
     print("\n")   
 
 # Run the calculation
-calculate_elo_from_csv(r"Data\ratio_team_results.csv", fresh=True, averaged=True)
+calculate_elo_from_csv(r"Data\ratio_team_results.csv", fresh=True, averaged=False)

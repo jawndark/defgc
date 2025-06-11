@@ -85,6 +85,11 @@ class EloCalculator:
         new_rating_b = rating_b + self.k * ((1 - result_a) - expected_b)
 
         return new_rating_a, new_rating_b
+    
+    def get_team_result(self, team_df):
+  
+
+
 
 
 # Example usage
