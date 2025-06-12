@@ -1,6 +1,7 @@
 import pandas as pd
 from collections import defaultdict
 from itertools import combinations, product
+from math import ceil
 
 class EloCalculator:
     def __init__(self, k=32):
@@ -32,10 +33,20 @@ def load_initial_ratings(file_path):
         # If the file doesn't exist, return an empty dictionary
         return {}
 
-def calculate_elo_from_csv(file_path, fresh=False, averaged=False):
+def calculate_elo_from_csv(file_path, fresh=False, averaged=False, brackets_only=False):
     # Load data
     df = pd.read_csv(file_path)
     df = df.loc[df['Character 1'].notnull()]
+    if brackets_only:
+        df = df[((df['Bracket'].notnull()) & (df['Bracket'] != 'x'))]
+        df = df.sort_values(by=['Date', 'Bracket', 'Set'])
+    else:
+        dfx = df.loc[df['Bracket'] == 'x']
+        dfb = df.loc[df['Bracket'] != 'x']
+        dfx['Wins'] = dfx['Wins'].divide(3).apply(ceil)
+        df = pd.concat([dfb, dfx], ignore_index=True)
+        df = df.sort_values(by=['Date', 'Bracket', 'Set'])
+
     if fresh == True:
         player_ratings = defaultdict(lambda: 1500)
         character_ratings = defaultdict(lambda: 1500)
@@ -58,7 +69,7 @@ def calculate_elo_from_csv(file_path, fresh=False, averaged=False):
     elo_calculator = EloCalculator(k=32)
 
     # Process each set
-    for set_id, set_df in df.groupby('Set'):
+    for set_id, set_df in df.groupby(['Date', 'Bracket', 'Set']):
         players = set_df['Player'].unique()
         if len(players) != 2:
             continue  # Skip sets without exactly 2 players
@@ -222,18 +233,27 @@ def calculate_elo_from_csv(file_path, fresh=False, averaged=False):
                     player_character_ratings[player_char2] = player_char2_rating    
 
     # Convert results to DataFrames
-    player_df = pd.DataFrame.from_dict(player_ratings, orient='index', columns=['Rating']).reset_index(names='Player')
-    character_df = pd.DataFrame.from_dict(character_ratings, orient='index', columns=['Rating']).reset_index(names='Character')
-    groove_df = pd.DataFrame.from_dict(groove_ratings, orient='index', columns=['Rating']).reset_index(names='Groove')
-    char_groove_df = pd.DataFrame.from_dict(char_groove_ratings, orient='index', columns=['Rating']).reset_index(names='Character-Groove')
-    player_character_df = pd.DataFrame.from_dict(player_character_ratings, orient='index', columns=['Rating']).reset_index(names='Player-Character')
+    player_df = pd.DataFrame.from_dict(player_ratings, orient='index', columns=['Rating']).reset_index(names='Player').sort_values(by='Rating', ascending=False)
+    character_df = pd.DataFrame.from_dict(character_ratings, orient='index', columns=['Rating']).reset_index(names='Character').sort_values(by='Rating', ascending=False)
+    groove_df = pd.DataFrame.from_dict(groove_ratings, orient='index', columns=['Rating']).reset_index(names='Groove').sort_values(by='Rating', ascending=False)
+    char_groove_df = pd.DataFrame.from_dict(char_groove_ratings, orient='index', columns=['Rating']).reset_index(names='Character-Groove').sort_values(by='Rating', ascending=False)
+    player_character_df = pd.DataFrame.from_dict(player_character_ratings, orient='index', columns=['Rating']).reset_index(names='Player-Character').sort_values(by='Rating', ascending=False)
 
     # Save results to CSV
-    player_df.to_csv(r"./Data/Ratio/player_elo_avg.csv", index=False)
-    character_df.to_csv(r"./Data/Ratio/character_elo_avg.csv", index=False)
-    groove_df.to_csv(r"./Data/Ratio/groove_elo_avg.csv", index=False)
-    char_groove_df.to_csv(r"./Data/Ratio/char_groove_elo_avg.csv", index=False)
-    player_character_df.to_csv(r"./Data/Ratio/player_character_elo_avg.csv", index=False)
+    avg_suffix = "_avg" if averaged else "_base"
+    bracket_suffix = "_bracket" if brackets_only else "_all"
+    base_path = rf"./Data/Ratio/elo{bracket_suffix}{avg_suffix}.xlsx"
+    with pd.ExcelWriter(base_path) as writer:
+        player_df.to_excel(writer, sheet_name='Player ELO', index=False)
+        character_df.to_excel(writer, sheet_name='Character ELO', index=False)
+        groove_df.to_excel(writer, sheet_name='Groove ELO', index=False)
+        char_groove_df.to_excel(writer, sheet_name='Character-Groove ELO', index=False)
+        player_character_df.to_excel(writer, sheet_name='Player-Character ELO', index=False)
+    # player_df.to_csv(rf"./Data/Ratio/player_elo{bracket_suffix}{avg_suffix}.csv", index=False)
+    # character_df.to_csv(rf"./Data/Ratio/character_elo{bracket_suffix}{avg_suffix}.csv", index=False)
+    # groove_df.to_csv(rf"./Data/Ratio/groove_elo{bracket_suffix}{avg_suffix}.csv", index=False)
+    # char_groove_df.to_csv(rf"./Data/Ratio/char_groove_elo{bracket_suffix}{avg_suffix}.csv", index=False)
+    # player_character_df.to_csv(rf"./Data/Ratio/player_character_elo{bracket_suffix}{avg_suffix}.csv", index=False)
 
     print_elo_values_from_dataframe(player_df, "Player ELO")
     print_elo_values_from_dataframe(character_df, "Character ELO")
@@ -270,4 +290,7 @@ def print_elo_values_from_dataframe(df, df_name=None):
     print("\n")   
 
 # Run the calculation
-calculate_elo_from_csv(r"Data\ratio_team_results.csv", fresh=True, averaged=False)
+for avg in [True, False]:
+    for brackets in [True, False]:
+        calculate_elo_from_csv(r"Data\ratio_team_results.csv", fresh=True, averaged=avg, brackets_only=brackets)
+
