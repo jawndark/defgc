@@ -27,16 +27,21 @@ def load_initial_ratings(file_path):
     :return: A dictionary with keys as the first column and values as the 'Rating' column.
     """
     try:
-        df = pd.read_csv(file_path)
-        return dict(zip(df.iloc[:, 0], df['Rating']))
+        dfs = pd.read_excel(file_path, sheet_name=None)
+        rating_dicts = {rating : dict(zip(df.iloc[:, 0], df['Rating'])) for rating, df in dfs.items()}
+        return rating_dicts
+        # return dict(zip(df.iloc[:, 0], df['Rating']))
+    # return dict(zip(df.iloc[:, 0], df['Rating']))
     except FileNotFoundError:
         # If the file doesn't exist, return an empty dictionary
-        return {}
+        return {}      
 
 def calculate_elo_from_csv(file_path, fresh=False, averaged=False, brackets_only=False):
     # Load data
     df = pd.read_csv(file_path)
     df = df.loc[df['Character 1'].notnull()]
+    avg_suffix = "_avg" if averaged else "_base"
+    bracket_suffix = "_bracket" if brackets_only else "_all"    
     if brackets_only:
         df = df[((df['Bracket'].notnull()) & (df['Bracket'] != 'x'))]
         df = df.sort_values(by=['Date', 'Bracket', 'Set'])
@@ -58,12 +63,12 @@ def calculate_elo_from_csv(file_path, fresh=False, averaged=False, brackets_only
              for char in character_ratings for groove in groove_ratings}
         )
     else:
-    # Load initial ratings from CSV files
-        player_ratings = defaultdict(lambda: 1500, load_initial_ratings(r"./Data/Ratio/player_elo.csv"))
-        character_ratings = defaultdict(lambda: 1500, load_initial_ratings(r"./Data/Ratio/character_elo.csv"))
-        groove_ratings = defaultdict(lambda: 1500, load_initial_ratings(r"./Data/Ratio/groove_elo.csv"))
-        char_groove_ratings = defaultdict(lambda: 1500, load_initial_ratings(r"./Data/Ratio/char_groove_elo.csv"))
-        player_character_ratings = defaultdict(lambda: 1500, load_initial_ratings(r"./Data/Ratio/player_character_elo.csv"))  # Load Player-Character ratings
+        initial_dfs = load_initial_ratings(rf"./Data/Ratio/elo{bracket_suffix}{avg_suffix}.xlsx")
+        player_ratings = defaultdict(lambda: 1500, initial_dfs.get('Player ELO', {}))
+        character_ratings = defaultdict(lambda: 1500, initial_dfs.get('Character ELO', {}))
+        groove_ratings = defaultdict(lambda: 1500, initial_dfs.get('Groove ELO', {}))
+        char_groove_ratings = defaultdict(lambda: 1500, initial_dfs.get('Character-Groove ELO', {}))
+        player_character_ratings = defaultdict(lambda: 1500, initial_dfs.get('Player-Character ELO', {}))
 
     # Initialize ELO calculator
     elo_calculator = EloCalculator(k=32)
@@ -240,8 +245,7 @@ def calculate_elo_from_csv(file_path, fresh=False, averaged=False, brackets_only
     player_character_df = pd.DataFrame.from_dict(player_character_ratings, orient='index', columns=['Rating']).reset_index(names='Player-Character').sort_values(by='Rating', ascending=False)
 
     # Save results to CSV
-    avg_suffix = "_avg" if averaged else "_base"
-    bracket_suffix = "_bracket" if brackets_only else "_all"
+
     base_path = rf"./Data/Ratio/elo{bracket_suffix}{avg_suffix}.xlsx"
     with pd.ExcelWriter(base_path) as writer:
         player_df.to_excel(writer, sheet_name='Player ELO', index=False)
@@ -249,11 +253,6 @@ def calculate_elo_from_csv(file_path, fresh=False, averaged=False, brackets_only
         groove_df.to_excel(writer, sheet_name='Groove ELO', index=False)
         char_groove_df.to_excel(writer, sheet_name='Character-Groove ELO', index=False)
         player_character_df.to_excel(writer, sheet_name='Player-Character ELO', index=False)
-    # player_df.to_csv(rf"./Data/Ratio/player_elo{bracket_suffix}{avg_suffix}.csv", index=False)
-    # character_df.to_csv(rf"./Data/Ratio/character_elo{bracket_suffix}{avg_suffix}.csv", index=False)
-    # groove_df.to_csv(rf"./Data/Ratio/groove_elo{bracket_suffix}{avg_suffix}.csv", index=False)
-    # char_groove_df.to_csv(rf"./Data/Ratio/char_groove_elo{bracket_suffix}{avg_suffix}.csv", index=False)
-    # player_character_df.to_csv(rf"./Data/Ratio/player_character_elo{bracket_suffix}{avg_suffix}.csv", index=False)
 
     print_elo_values_from_dataframe(player_df, "Player ELO")
     print_elo_values_from_dataframe(character_df, "Character ELO")
